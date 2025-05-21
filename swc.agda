@@ -14,7 +14,6 @@ open import Relation.Binary.PropositionalEquality
   using (_≡_; cong; refl; module ≡-Reasoning)
   public
 
-open ≡-Reasoning
 
 private
   variable
@@ -23,138 +22,136 @@ private
     k : Set ℓ₁
     v : Set ℓ₂
 
--- Equality
-
 Eq : Set ℓ₁ -> Set ℓ₁
 Eq a = a -> a -> B.Bool
 
--- URLs
+module Dmap where
 
-URL : Set
-URL = List String
+  data Dmap (k : Set ℓ₁) (v : Set ℓ₂) : Set (ℓ₁ ⊔ ℓ₂) where
+    default : v -> Dmap k v
+    assoc : k -> v -> Dmap k v -> Dmap k v
 
-url= : Eq URL
-url= [] [] = B.true
-url= [] (x ∷ u2) = B.false
-url= (x ∷ u1) [] = B.false
-url= (x ∷ u1) (y ∷ u2) = (x == y) ∧ (url= u1 u2)
+  denotation : Eq k -> Dmap k v -> (k -> v)
+  denotation eq (default v) = λ _ -> v
+  denotation eq (assoc k v dm) k' = if (eq k k')
+                                    then v
+                                    else denotation eq dm k'
 
--- Default maps
+  -- Functor:
 
-data Dmap (k : Set ℓ₁) (v : Set ℓ₂) : Set (ℓ₁ ⊔ ℓ₂) where
-  default : v -> Dmap k v
-  assoc : k -> v -> Dmap k v -> Dmap k v
+  map : {a b : Set ℓ₂} -> (a -> b) -> (Dmap k a -> Dmap k b)
+  map f (default v) = (default (f v))
+  map f (assoc k v dm) = (assoc k (f v) (map f dm))
 
-sem-dmap : Eq k -> Dmap k v -> (k -> v)
-sem-dmap eq (default v) = λ _ -> v
-sem-dmap eq (assoc k v dm) k' = if (eq k k')
-                                  then v
-                                  else sem-dmap eq dm k'
+  open ≡-Reasoning
 
--- Functor:
+  map-id : (dm : Dmap k v) -> (map id) dm ≡ (id dm)
+  map-id (default v) = refl
+  map-id (assoc k v dm') = begin
+    (map id) (assoc k v dm')
+      ≡⟨⟩
+    assoc k v (map id dm')
+      ≡⟨ cong (assoc k v) (map-id dm') ⟩
+    assoc k v dm'
+    ∎
 
-fmap : {a b : Set ℓ₂} -> (a -> b) -> (Dmap k a -> Dmap k b)
-fmap f (default v) = (default (f v))
-fmap f (assoc k v dm) = (assoc k (f v) (fmap f dm))
+  map-comp : {a b c : Set} (f : b -> c) (g : a -> b) (dm : Dmap k a) -> map (f ∘ g) dm ≡ (map f ∘ map g) dm
+  map-comp f g (default v) = refl
+  map-comp f g (assoc k v dm') = begin
+    map (f ∘ g) (assoc k v dm')
+      ≡⟨⟩
+    (assoc k ((f ∘ g) v) (map (f ∘ g) dm'))
+      ≡⟨ cong (assoc k ((f ∘ g) v)) (map-comp f g dm') ⟩
+    (assoc k ((f ∘ g) v) ((map f ∘ map g) dm'))
+      ≡⟨⟩
+    (map f ∘ map g) (assoc k v dm')
+    ∎
 
-dmap-id : (dm : Dmap k v) -> (fmap id) dm ≡ (id dm)
-dmap-id (default v) = refl
-dmap-id (assoc k v dm') = begin
-  (fmap id) (assoc k v dm')
-    ≡⟨⟩
-  assoc k v (fmap id dm')
-    ≡⟨ cong (assoc k v) (dmap-id dm') ⟩
-  assoc k v dm'
-  ∎
+  -- Applicative:
 
-dmap-comp : {a b c : Set} (f : b -> c) (g : a -> b) (dm : Dmap k a) -> fmap (f ∘ g) dm ≡ (fmap f ∘ fmap g) dm
-dmap-comp f g (default v) = refl
-dmap-comp f g (assoc k v dm') = begin
-  fmap (f ∘ g) (assoc k v dm')
-    ≡⟨⟩
-  (assoc k ((f ∘ g) v) (fmap (f ∘ g) dm'))
-    ≡⟨ cong (assoc k ((f ∘ g) v)) (dmap-comp f g dm') ⟩
-  (assoc k ((f ∘ g) v) ((fmap f ∘ fmap g) dm'))
-    ≡⟨⟩
-  (fmap f ∘ fmap g) (assoc k v dm')
-  ∎
+  pure : v -> Dmap k v
+  pure = default
 
--- Applicative:
+  ap : {a b : Set ℓ₂} -> Eq k -> Dmap k (a -> b) -> Dmap k a -> Dmap k b
+  ap eq (default f) dmx = map f dmx
+  ap eq (assoc k f dmf) dmx = assoc k (f (denotation eq dmx k)) (ap eq dmf dmx)
 
-pure : v -> Dmap k v
-pure = default
+  ap-id : {a : Set ℓ₂} -> (eq : Eq k) -> ∀ (dm : Dmap k a) -> ap eq (pure id) dm ≡ dm
+  ap-id eq (default x) = refl
+  ap-id eq (assoc k v dm') = begin
+    ap eq (pure id) (assoc k v dm')
+      ≡⟨⟩
+    map id (assoc k v dm')
+      ≡⟨⟩
+    (assoc k (id v) (map id dm'))
+      ≡⟨⟩
+    (assoc k v (map id dm'))
+      ≡⟨ cong (assoc k v) (map-id dm') ⟩
+    (assoc k v dm')
+    ∎
 
-ap : {a b : Set ℓ₂} -> Eq k -> Dmap k (a -> b) -> Dmap k a -> Dmap k b
-ap eq (default f) dmx = fmap f dmx
-ap eq (assoc k f dmf) dmx = assoc k (f (sem-dmap eq dmx k)) (ap eq dmf dmx)
+  -- TODO: ap-comp, ap-hom, ap-interchange
 
-ap-identity : {a : Set ℓ₂} -> (eq : Eq k) -> ∀ (dm : Dmap k a) -> ap eq (pure id) dm ≡ dm
-ap-identity eq (default x) = refl
-ap-identity eq (assoc k v dm') = begin
-  ap eq (pure id) (assoc k v dm')
-    ≡⟨⟩
-  fmap id (assoc k v dm')
-    ≡⟨⟩
-  (assoc k (id v) (fmap id dm'))
-    ≡⟨⟩
-  (assoc k v (fmap id dm'))
-    ≡⟨ cong (assoc k v) (dmap-id dm') ⟩
-  (assoc k v dm')
-  ∎
+  liftA2 : {a b c : Set ℓ₂} -> Eq k -> (a -> b -> c) -> Dmap k a -> Dmap k b -> Dmap k c
+  liftA2 eq f x y = (ap eq ((map f) x) y)
 
--- TODO: ap-comp, ap-hom, ap-interchange
+  -- Alternative:
 
-liftA2 : {a b c : Set ℓ₂} -> Eq k -> (a -> b -> c) -> Dmap k a -> Dmap k b -> Dmap k c
-liftA2 eq f x y = (ap eq ((fmap f) x) y)
+  empty : {a : Set ℓ₂} -> Dmap k (Maybe.Maybe a)
+  empty = default Maybe.nothing
 
--- Alternative:
+  or : {a : Set ℓ₂} → Eq k → Dmap k (Maybe.Maybe a) → Dmap k (Maybe.Maybe a) → Dmap k (Maybe.Maybe a)
+  or eq = liftA2 eq _<∣>_
 
-empty : {a : Set ℓ₂} -> Dmap k (Maybe.Maybe a)
-empty = default Maybe.nothing
 
-or : {a : Set ℓ₂} → Eq k → Dmap k (Maybe.Maybe a) → Dmap k (Maybe.Maybe a) → Dmap k (Maybe.Maybe a)
-or eq = liftA2 eq _<∣>_
+module Web where
 
--- Web DSL is just Dmap String (Maybe.Maybe a)
+  open Dmap public hiding (denotation)
 
-Web : Set -> Set
-Web a = Dmap URL (Maybe.Maybe a)
+  URL : Set
+  URL = List String
 
-sem-web = sem-dmap
+  url= : Eq URL
+  url= [] [] = B.true
+  url= [] (x ∷ u2) = B.false
+  url= (x ∷ u1) [] = B.false
+  url= (x ∷ u1) (y ∷ u2) = (x == y) ∧ (url= u1 u2)
+
+  Web : Set -> Set
+  Web a = Dmap URL (Maybe.Maybe a)
+
+  denotation = Dmap.denotation
+
+
+
 
 -----------
 
-data Map (k : Set ℓ₁) (v : Set ℓ₂) : Set (ℓ₁ ⊔ ℓ₂) where
-  leer : Map k v
-  assoc : k -> v -> Map k v -> Map k v
+-- A quick implementation of associative maps
 
-sem-map : Eq k -> Map k v -> (k -> Maybe.Maybe v)
-sem-map eq leer _ = nothing
-sem-map eq (assoc k v m) k' = if eq k k'
-                                then just v
-                                else sem-map eq m k'
+module Map where
+
+  data Map (k : Set ℓ₁) (v : Set ℓ₂) : Set (ℓ₁ ⊔ ℓ₂) where
+    empty : Map k v
+    assoc : k -> v -> Map k v -> Map k v
+
+  denotation : Eq k -> Map k v -> (k -> Maybe.Maybe v)
+  denotation eq empty _ = nothing
+  denotation eq (assoc k v m) k' = if eq k k'
+                                     then just v
+                                     else denotation eq m k'
 
 
 -- Compilation / Downsampling
 
-compile : {a : Set} -> Web a -> Map URL a
-compile (default (just x)) = assoc [] x leer
-compile (default nothing) = leer
-compile (assoc k (just x) w) = assoc k x (compile w)
-compile (assoc k nothing w) = compile w
+compile : {a : Set} -> Web.Web a -> Map.Map Web.URL a
+compile (Web.default (just x)) = Map.assoc [] x Map.empty
+compile (Web.default nothing) = Map.empty
+compile (Web.assoc k (just x) w) = Map.assoc k x (compile w)
+compile (Web.assoc k nothing w) = compile w
 
-compile-correct : {a : Set} -> (w : Web a) (url : URL) (res : a) -> sem-map url= (compile w) url ≡ just res -> sem-web url= w url ≡ just res
-compile-correct (default (just d)) [] res x = begin
-  sem-web url= (default (just d)) []
-    ≡⟨⟩
-  just d
-    ≡⟨⟩
-  (if url= [] [] then just d else nothing)
-    ≡⟨ x ⟩
-  just res
-  ∎
-compile-correct (default (just d)) (seg ∷ url) res x = {!!}
-compile-correct (assoc x₁ x₂ w) url res x = {!!}
+compile-correct-alternative-1 : {a : Set} -> (w : Web.Web a) (url : Web.URL) (res : a) -> Map.denotation Web.url= (compile w) url ≡ just res -> Web.denotation Web.url= w url ≡ just res
+compile-correct-alternative-1 = {!!}
 
--- compile-correct : {a : Set} -> ∀ (w : Web a) (url : String) -> (sem-map (compile w)) url ≡ sem-web w url
--- compile-correct = {!!}
+compile-correct-alternative-2 : {a : Set} -> ∀ (w : Web.Web a) (url : Web.URL) -> (Map.denotation Web.url= (compile w)) url ≡ Web.denotation Web.url= w url
+compile-correct-alternative-2 = {!!}
