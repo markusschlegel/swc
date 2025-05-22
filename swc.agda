@@ -208,11 +208,20 @@ dmap-correct-1 : {k : Set ℓ₁} ->
                  Map.denotation (dmap-as-map dm) kv ≡ Dmap.denotation dm kv
 dmap-correct-1 = {!!}
 
+-- This might be part of a weaker criterium: Whenever we compile to a
+-- just, the triangle commutes.
+compile-correct-alternative-2 : {k : Set ℓ₁} ->
+                                {v : Set ℓ₂} ->
+                                {{eq : Eq k}} ->
+                                {{mon : Monoid k}} ->
+                                (dm : Dmap.Dmap k (Maybe v)) ->
+                                (kv : k) ->
+                                (res : v) ->
+                                Map.denotation (dmap-as-map dm) kv ≡ just res ->
+                                Dmap.denotation dm kv ≡ just res
+compile-correct-alternative-2 = {!!}
+
 -- Compilation of the web DSL is now just a translation to dmap and then to map
 compile : {a : Set} -> Web.Web a -> Map.Map Web.URL a
 compile = dmap-as-map ∘ Web.as-dmap
 
--- -- This might be part of a weaker criterium: Whenever we compile to a
--- -- just, the triangle commutes.
--- compile-correct-alternative-2 : {a : Set} -> (w : Web.Web a) (url : Web.URL) (res : a) -> Map.denotation Web.url= (compile w) url ≡ just res -> Web.denotation w url ≡ just res
--- compile-correct-alternative-2 = {!!}
