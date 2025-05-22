@@ -198,7 +198,7 @@ dmap-as-map (Dmap.assoc k (just x) dm) = Map.assoc k x (dmap-as-map dm)
 dmap-as-map (Dmap.assoc k nothing dm) = dmap-as-map dm
 
 -- This would be the ultimate correctness criterium: The triangle made
--- of Map's denotation, compile, and Web's denotation commutes.
+-- of Map's denotation, dmap-as-map, and Dmap's denotation commutes.
 dmap-correct-1 : {k : Set ℓ₁} ->
                  {v : Set ℓ₂} ->
                  {{eq : Eq k}} ->
