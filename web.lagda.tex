@@ -1,0 +1,398 @@
+\documentclass[aspectratio=169]{beamer}
+
+\usepackage[utf8]{inputenc}
+
+\usepackage[T1]{fontenc}
+
+\usepackage{newunicodechar}
+\newunicodechar{λ}{\ensuremath{\mathnormal\lambda}}
+\newunicodechar{←}{\ensuremath{\mathnormal\from}}
+\newunicodechar{→}{\ensuremath{\mathnormal\to}}
+\newunicodechar{∀}{\ensuremath{\mathnormal\forall}}
+\newunicodechar{⊔}{\ensuremath{\mathnormal\sqcup}}
+\newunicodechar{∷}{\ensuremath{::}}
+\newunicodechar{∣}{\ensuremath{|}}
+\newunicodechar{∣}{\ensuremath{|}}
+\newunicodechar{∘}{\ensuremath{\mathnormal\circ}}
+\newunicodechar{⊤}{\ensuremath{\mathnormal\top}}
+\newunicodechar{≡}{\ensuremath{\mathnormal\equiv}}
+\newunicodechar{₁}{\ensuremath{_1}}
+\newunicodechar{₂}{\ensuremath{_2}}
+
+\usepackage{agda}
+
+\usepackage{fancyvrb}
+
+
+%Information to be included in the title page:
+\title{From URL to HTML -- Your website as a function}
+\author{Markus Schlegel}
+\institute{Active Group GmbH}
+\date{Lambda Days, June 2025}
+
+\begin{document}
+
+\frame{\titlepage}
+
+\begin{code}
+module web where
+
+import Data.List as L
+open L using (List; _++_; []; _∷_; [_])
+import Data.Maybe as Maybe
+open Maybe using (Maybe; just; nothing; _<∣>_)
+import Data.String as S
+open S using (String; _==_)
+import Data.Bool as B
+open B using (Bool; if_then_else_)
+open import Function.Base using (id; _∘_)
+open import Relation.Binary.PropositionalEquality
+  using (_≡_; cong; sym; trans; refl)
+open import Data.Product hiding (map)
+open import Data.Unit using (⊤; tt)
+
+private
+  variable
+    a b c d : Set
+\end{code}
+
+\begin{frame}
+\frametitle{A few months ago I mostly built websites}
+\begin{figure}
+\centering
+    \includegraphics[height=0.75\textheight]{active-group.de.png}
+    \caption{active-group.de}
+\end{figure}
+\end{frame}
+
+\begin{frame}
+\frametitle{A few months ago I mostly built websites}
+\includegraphics[width=9cm]{functional-architecture.org.png}
+\end{frame}
+
+\begin{frame}
+\frametitle{A few months ago I mostly built websites}
+\includegraphics[width=9cm]{funktionale-programmierung.de}
+\end{frame}
+
+\begin{frame}
+\frametitle{A few months ago I mostly built websites}
+\includegraphics[width=9cm]{bobkonf.de.png}
+\end{frame}
+
+\begin{frame}
+\frametitle{What do all these have in common?}
+They are static websites ... created by a static site generator
+\end{frame}
+
+\begin{frame}
+\frametitle{Requirements}
+\begin{itemize}
+  \item Proper tools for abstraction (i.e. Lambdas)
+  \item Algebraic composition (\texttt{website1 + website2 = website3})
+  \item Separation of concerns: domain model vs. presentation
+  \item Correctness by constructions (no broken internal links, no invalid HTML etc.)
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+\frametitle{Impressions (1)}
+\includegraphics[width=10cm]{ml-01.png}
+\end{frame}
+
+\begin{frame}
+\frametitle{Impressions (2)}
+\includegraphics[width=10cm]{ml-02.png}
+\end{frame}
+
+\begin{frame}
+\frametitle{Impressions (3)}
+\includegraphics[width=10cm]{ml-03.png}
+\end{frame}
+
+\begin{frame}
+\frametitle{Impressions (4)}
+\includegraphics[width=10cm]{ml-04.png}
+\end{frame}
+
+\begin{frame}
+\frametitle{What is (the essence of) a static website?}
+\begin{itemize}
+  \item A set of HTML, CSS, and JS files in folders?
+  \item A set of HTTP request and response tuples?
+  \item A pure function!
+\end{itemize}
+\begin{code}
+module spec where
+
+  Website : Set → Set → Set
+  Website a b = a → b
+\end{code}
+\end{frame}
+
+\begin{frame}
+\frametitle{Some useful website primitives and combinators}
+\begin{code}
+  const : b → Website a (Maybe b)
+  const x = λ _ → just x
+  
+  map : (b → c) → Website a b → Website a c
+  map f w = f ∘ w
+  
+  map2 : (b → c → d) → Website a b → Website a c → Website a d
+  map2 f w₁ w₂ = λ x → f (w₁ x) (w₂ x)
+\end{code}
+\end{frame}
+
+\begin{frame}
+\frametitle{URLs}
+\begin{code}
+  URL : Set
+  URL = List String
+
+  empty-url : URL
+  empty-url = []
+\end{code}
+\end{frame}
+
+\begin{frame}
+\frametitle{More useful website primitives and combinators}
+\begin{code}
+  empty : Website a (Maybe b)
+  empty = λ _ → nothing
+  
+  or : Website a (Maybe b) → Website a (Maybe b) → Website a (Maybe b)
+  or ws₁ ws₂ = λ x → ws₁ x <∣> ws₂ x
+  
+  seg : String → Website URL (Maybe a) → Website URL (Maybe a)
+  seg s w [] = nothing
+  seg s w (s' ∷ url) = if s == s' then w url else nothing
+\end{code}
+\end{frame}
+
+\begin{frame}
+\frametitle{A few example websites}
+\begin{code}
+  ex1 : Website URL (Maybe String)
+  ex1 = const "Hello World"
+  
+  ex2 : Website URL (Maybe String)
+  ex2 = const "Bye bye"
+  
+  ex3 : Website URL (Maybe String)
+  ex3 = or (seg "foo" ex1)
+           (seg "bar" ex2)
+\end{code}
+\end{frame}
+
+\begin{frame}
+\frametitle{Markdown and HTML}
+\begin{code}
+  data Markdown : Set where
+    s : String -> Markdown
+    # : Markdown -> Markdown
+    ## : Markdown -> Markdown
+    ** : String -> Markdown
+    _<>_ : Markdown -> Markdown -> Markdown
+  
+  data HTML : Set where
+    s : String -> HTML
+    h1 : HTML -> HTML
+    h2 : HTML -> HTML
+    strong : String -> HTML
+    _<>_ : HTML -> HTML -> HTML
+
+  markdown->html : Markdown -> HTML
+  markdown->html (s x) = s x
+  markdown->html (# x) = h1 (markdown->html x)
+  markdown->html (## x) = h2 (markdown->html x)
+  markdown->html (** x) = strong x
+  markdown->html (x <> y) = markdown->html x <> markdown->html y
+\end{code}
+\end{frame}
+
+\begin{frame}
+\frametitle{Markdown and HTML}
+\begin{code}
+  case : List (String × Website URL (Maybe a)) -> Website URL (Maybe a)
+  case [] = empty
+  case (( st , w ) ∷ cases) = or (seg st w) (case cases)
+  
+  ex4 : Website URL (Maybe Markdown)
+  ex4 = case (( "hi" , const (# ((s "Hello ") <> (** "Lambda Days")))) ∷
+              ( "bye" , const (s "Bye") ) ∷
+              ( "about" , const (s "Nice website") ) ∷
+              [])
+  
+  ex5 : Website URL (Maybe HTML)
+  ex5 = map (Maybe.map markdown->html) ex4
+\end{code}
+\end{frame}
+
+\begin{frame}
+\frametitle{And we're done?}
+\begin{itemize}
+ \item We still want to render these websites to the representation of a set of files and folders.
+ \item Total functions are too high fidelity, however.
+ \item We could sample the high-fidelity website functions.
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+\frametitle{URLMap}
+\begin{code}
+  module URLMap where
+  
+    data URLMap (a : Set) : Set where
+      emp : URLMap a
+      assoc : (k : URL) -> (v : a) -> URLMap a -> URLMap a
+\end{code}
+\end{frame}
+
+\begin{frame}
+\frametitle{Sampling}
+\begin{code}
+  open URLMap
+
+  sample : (f : URL -> a) -> (urls : List URL) -> URLMap a
+  sample f [] = emp
+  sample f (url ∷ urls) = assoc url (f url) (sample f urls)
+\end{code}
+\end{frame}
+
+\begin{frame}
+\frametitle{Reflection (1)}
+\begin{code}
+module impl where
+
+  data WS : {spec.Website a b} -> Set₁ where
+    -- const x = λ _ -> just x
+    const : (x : b) -> WS {a} {Maybe b} {spec.const x}
+    -- map f w = f ∘ w
+    map : {g : spec.Website a b} ->
+          (f : b -> c) -> WS {a} {b} {g} -> WS {a} {c} {spec.map f g}
+    -- map2 f w₁ w₂ = λ x -> f (w₁ x) (w₂ x)
+    map2 : {g : spec.Website a b} -> {h : spec.Website a c}
+           -> (f : b -> c -> d)
+           -> WS {a} {b} {g}
+           -> WS {a} {c} {h}
+           -> WS {a} {d} {spec.map2 f g h}
+\end{code}
+\end{frame}
+
+\begin{frame}
+\frametitle{Reflection (2)}
+\begin{code}
+    -- empty = λ _ -> nothing
+    empty : WS {a} {Maybe b} {spec.empty}
+    -- or ws₁ ws₂ = λ x -> ws₁ x <∣> ws₂ x
+    or : {f g : spec.Website a (Maybe b)}
+         -> WS {a} {Maybe b} {f}
+         -> WS {a} {Maybe b} {g}
+         -> WS {a} {Maybe b} {spec.or f g}
+    -- seg s w [] = nothing
+    -- seg s w (s' ∷ url) = if s == s' then w url else nothing
+    seg : {f : spec.Website spec.URL (Maybe a)}
+          -> (s : String)
+          -> WS {spec.URL} {Maybe a} {f}
+          -> WS {spec.URL} {Maybe a} {spec.seg s f}
+\end{code}
+\end{frame}
+
+\begin{frame}
+\frametitle{Run}
+\begin{code}
+  run : {f : spec.Website a b} -> WS {a} {b} {f} -> (a -> b)
+  run (const x) _ = just x
+  run (map f x) a = f (run x a)
+  run (map2 f w₁ w₂) a = f (run w₁ a) (run w₂ a)
+  run empty x = nothing
+  run (or w₁ w₂) x = run w₁ x <∣> run w₂ x
+  run (seg s w) [] = nothing
+  run (seg s w) (s' ∷ url) = if s == s' then run w url else nothing
+\end{code}
+\end{frame}
+
+\begin{frame}
+\frametitle{Sampling points suggestion}
+\begin{code}
+  sugg : {f : spec.Website spec.URL b}
+         -> WS {spec.URL} {b} {f}
+         -> List spec.URL
+  sugg (const x) = [ spec.empty-url ]
+  sugg (map _ w) = sugg w
+  sugg (map2 f w₁ w₂) = sugg w₁ ++ sugg w₂
+  sugg empty = [ spec.empty-url ]
+  sugg (or w₁ w₂) = sugg w₁ ++ sugg w₂
+  sugg (seg s w) = L.map (s ∷_) (sugg w)
+\end{code}
+\end{frame}
+
+\begin{frame}
+\frametitle{Rendering (1)}
+\begin{code}
+  open spec.URLMap
+
+  render : {f : spec.Website spec.URL b}
+           -> WS {spec.URL} {b} {f}
+           -> URLMap b
+  render w = spec.sample (run w) (sugg w)
+\end{code}
+\end{frame}
+
+\begin{frame}
+\frametitle{Rendering (2)}
+\begin{code}
+  unwrap : URLMap (Maybe a) -> URLMap a
+  unwrap emp = emp
+  unwrap (assoc k (just x) m) = assoc k x (unwrap m)
+  unwrap (assoc k nothing m) = (unwrap m)
+
+  render' : {f : spec.Website spec.URL (Maybe b)}
+            -> WS {spec.URL} {Maybe b} {f}
+            -> URLMap b
+  render' w = unwrap (spec.sample (run w) (sugg w))
+\end{code}
+\end{frame}
+
+\begin{frame}
+\frametitle{Examples (1)}
+\begin{code}
+ex1' : impl.WS {spec.URL}
+ex1' = impl.const "Hello World"
+
+ex2' : impl.WS {spec.URL}
+ex2' = impl.const "Bye bye"
+
+ex3' : impl.WS
+ex3' = impl.or (impl.seg "foo" ex1')
+               (impl.seg "bar" ex2')
+\end{code}
+\end{frame}
+
+\begin{frame}
+\frametitle{Examples (2)}
+\begin{code}
+open spec.URLMap
+
+ex1'r : URLMap String
+ex1'r = impl.render' ex1'
+
+ex2'r : URLMap String
+ex2'r = impl.render' ex2'
+
+ex1't : ex1'r ≡ assoc [] "Hello World" emp
+ex1't = refl
+
+ex3'r : URLMap String
+ex3'r = impl.render' ex3'
+
+ex3't : ex3'r ≡ assoc [ "foo" ] "Hello World"
+               (assoc [ "bar" ] "Bye bye"
+                emp)
+ex3't = refl
+\end{code}
+\end{frame}
+
+
+\end{document}
