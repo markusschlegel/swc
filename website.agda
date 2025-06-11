@@ -4,8 +4,7 @@ import Data.List as L
 open L using (List; _++_; []; _∷_; [_])
 import Data.Maybe as Maybe
 open Maybe using (Maybe; just; nothing; _<∣>_)
-import Data.String as S
-open S using (String; _==_)
+open import Data.String using (String; _==_)
 import Data.Bool as B
 open B using (Bool; if_then_else_)
 open import Function.Base using (id; _∘_)
