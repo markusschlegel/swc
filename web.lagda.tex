@@ -23,6 +23,8 @@
 
 \usepackage{fancyvrb}
 
+\usepackage{comment}
+
 
 %Information to be included in the title page:
 \title{From URL to HTML -- Your website as a function}
@@ -34,6 +36,7 @@
 
 \frame{\titlepage}
 
+\begin{comment}
 \begin{frame}
 \begin{code}
 module web where
@@ -53,7 +56,9 @@ open import Data.Product hiding (map)
 open import Data.Unit using (⊤; tt)
 \end{code}
 \end{frame}
+\end{comment}
 
+\begin{comment}
 \begin{frame}
 \begin{code}
 private
@@ -61,6 +66,7 @@ private
     a b c d : Set
 \end{code}
 \end{frame}
+\end{comment}
 
 \begin{frame}
 \frametitle{A few months ago I mostly built websites}
@@ -73,22 +79,27 @@ private
 
 \begin{frame}
 \frametitle{A few months ago I mostly built websites}
-\includegraphics[width=9cm]{functional-architecture.org.png}
+\includegraphics[height=0.75\textheight]{functional-architecture.org.png}
 \end{frame}
 
 \begin{frame}
 \frametitle{A few months ago I mostly built websites}
-\includegraphics[width=9cm]{funktionale-programmierung.de}
+\includegraphics[height=0.75\textheight]{funktionale-programmierung.de}
 \end{frame}
 
 \begin{frame}
 \frametitle{A few months ago I mostly built websites}
-\includegraphics[width=9cm]{bobkonf.de.png}
+\includegraphics[height=0.75\textheight]{bobkonf.de.png}
 \end{frame}
 
 \begin{frame}
 \frametitle{What do all these have in common?}
 They are static websites ... created by a static site generator
+\end{frame}
+
+\begin{frame}
+\frametitle{Static websites}
+\includegraphics[width=12cm]{static.png}
 \end{frame}
 
 \begin{frame}
@@ -103,22 +114,22 @@ They are static websites ... created by a static site generator
 
 \begin{frame}
 \frametitle{Impressions (1)}
-\includegraphics[width=10cm]{ml-01.png}
+\includegraphics[width=12cm]{ml-01.png}
 \end{frame}
 
 \begin{frame}
 \frametitle{Impressions (2)}
-\includegraphics[width=10cm]{ml-02.png}
+\includegraphics[width=12cm]{ml-02.png}
 \end{frame}
 
 \begin{frame}
 \frametitle{Impressions (3)}
-\includegraphics[width=10cm]{ml-03.png}
+\includegraphics[width=12cm]{ml-03.png}
 \end{frame}
 
 \begin{frame}
 \frametitle{Impressions (4)}
-\includegraphics[width=10cm]{ml-04.png}
+\includegraphics[width=12cm]{ml-04.png}
 \end{frame}
 
 \begin{frame}
@@ -267,6 +278,18 @@ module spec where
 \end{frame}
 
 \begin{frame}
+\frametitle{Sampling (2)}
+\begin{itemize}
+  \item Where do the sampling points come from?
+\end{itemize}
+\begin{code}
+  ex : Website URL (Maybe String)
+  ex = or (seg "foo" ex1)
+          (seg "bar" ex2)
+\end{code}
+\end{frame}
+
+\begin{frame}
 \frametitle{Reflection (1)}
 \begin{code}
 module impl where
@@ -406,12 +429,12 @@ ex3't = refl
 \begin{itemize}
   \item What about internal links?
 \end{itemize}
-\includegraphics[width=10cm]{ml-04.png}
+\includegraphics[width=12cm]{ml-04.png}
 \end{frame}
 
 \begin{frame}
 \frametitle{Now done?}
-\includegraphics[width=10cm]{ml-04.png}
+\includegraphics[width=12cm]{ml-04.png}
 \begin{itemize}
   \item Web links refer to pages -- a concept that only makes sense ``in the end.''
 \end{itemize}
