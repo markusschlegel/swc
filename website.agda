@@ -31,13 +31,13 @@ module spec where
   map2 : (b → c → d) → Website a b → Website a c → Website a d
   map2 f w₁ w₂ = λ x → f (w₁ x) (w₂ x)
 
-  URL : Set
-  URL = List String
+  Path : Set
+  Path = List String
 
-  empty-url : URL
-  empty-url = []
+  empty-path : Path
+  empty-path = []
 
-  -- url== : URL -> URL -> Bool
+  -- url== : Path → Path → Bool
   -- url== [] [] = B.true
   -- url== [] (_ ∷ _) = B.false
   -- url== (_ ∷ _) [] = B.false
@@ -49,81 +49,81 @@ module spec where
   or : Website a (Maybe b) → Website a (Maybe b) → Website a (Maybe b)
   or ws₁ ws₂ = λ x → ws₁ x <∣> ws₂ x
   
-  seg : String → Website URL (Maybe a) → Website URL (Maybe a)
+  seg : String → Website Path (Maybe a) → Website Path (Maybe a)
   seg s w [] = nothing
   seg s w (s' ∷ url) = if s == s' then w url else nothing
   
   
   -- A few example websites
-  ex1 : Website URL (Maybe String)
+  ex1 : Website Path (Maybe String)
   ex1 = const "Hello World"
   
-  ex2 : Website URL (Maybe String)
+  ex2 : Website Path (Maybe String)
   ex2 = const "Bye bye"
   
-  ex3 : Website URL (Maybe String)
+  ex3 : Website Path (Maybe String)
   ex3 = or (seg "foo" ex1)
            (seg "bar" ex2)
   
   data Markdown : Set where
-    s : String -> Markdown
-    # : Markdown -> Markdown
-    ## : Markdown -> Markdown
-    ** : String -> Markdown
-    _<>_ : Markdown -> Markdown -> Markdown
+    s : String → Markdown
+    # : Markdown → Markdown
+    ## : Markdown → Markdown
+    ** : String → Markdown
+    _<>_ : Markdown → Markdown → Markdown
   
   data HTML : Set where
-    s : String -> HTML
-    h1 : HTML -> HTML
-    h2 : HTML -> HTML
-    strong : String -> HTML
-    _<>_ : HTML -> HTML -> HTML
+    s : String → HTML
+    h1 : HTML → HTML
+    h2 : HTML → HTML
+    strong : String → HTML
+    _<>_ : HTML → HTML → HTML
     
-  markdown->html : Markdown -> HTML
+  markdown->html : Markdown → HTML
   markdown->html (s x) = s x
   markdown->html (# x) = h1 (markdown->html x)
   markdown->html (## x) = h2 (markdown->html x)
   markdown->html (** x) = strong x
   markdown->html (x <> y) = markdown->html x <> markdown->html y
   
-  case : List (String × Website URL (Maybe a)) -> Website URL (Maybe a)
+  case : List (String × Website Path (Maybe a)) → Website Path (Maybe a)
   case [] = empty
   case (( st , w ) ∷ cases) = or (seg st w) (case cases)
   
-  ex4 : Website URL (Maybe Markdown)
+  ex4 : Website Path (Maybe Markdown)
   ex4 = case (( "hi" , const (# ((s "Hello ") <> (** "Lambda Days")))) ∷
               ( "bye" , const (s "Bye") ) ∷
               ( "about" , const (s "Nice website") ) ∷
               [])
   
-  ex5 : Website URL (Maybe HTML)
+  ex5 : Website Path (Maybe HTML)
   ex5 = map (Maybe.map markdown->html) ex4
   
   
   
   -- sampling
   
-  module URLMap where
+  module PathMap where
   
-    data URLMap (a : Set) : Set where
-      emp : URLMap a
-      assoc : (k : URL) -> (v : a) -> URLMap a -> URLMap a
+    data PathMap (a : Set) : Set where
+      emp : PathMap a
+      assoc : (k : Path) → (v : a) → PathMap a → PathMap a
   
-    keys : {a : Set} -> URLMap a -> List URL
+    keys : {a : Set} → PathMap a → List Path
     keys emp = []
     keys (assoc k _ mp) = k ∷ (keys mp)
   
-    approximates : {a : Set} -> (URL -> a) -> URLMap a -> Set
+    approximates : {a : Set} → (Path → a) → PathMap a → Set
     approximates f emp = ⊤
     approximates f (assoc k v mp) = v ≡ f k × approximates f mp
   
-    -- app : {a : Set ℓ} -> {m : M a} -> SMap m -> String -> Maybe a
+    -- app : {a : Set ℓ} → {m : M a} → SMap m → String → Maybe a
     -- app empty k = nothing
     -- app (assoc k' v m') k = if k' == k then just v else app m' k
   
-  open URLMap
+  open PathMap
   
-  sample : (f : URL -> a) -> (urls : List URL) -> URLMap a
+  sample : (f : Path → a) → (urls : List Path) → PathMap a
   sample f [] = emp
   sample f (url ∷ urls) = assoc url (f url) (sample f urls)
   
@@ -138,33 +138,33 @@ module spec where
 
 module impl where
 
-  data WS : {spec.Website a b} -> Set₁ where
-    -- const x = λ _ -> just x
-    const : (x : b) -> WS {a} {Maybe b} {spec.const x}
+  data WS : {spec.Website a b} → Set₁ where
+    -- const x = λ _ → just x
+    const : (x : b) → WS {a} {Maybe b} {spec.const x}
     -- map f w = f ∘ w
-    map : {g : spec.Website a b} ->
-          (f : b -> c) -> WS {a} {b} {g} -> WS {a} {c} {spec.map f g}
-    -- map2 f w₁ w₂ = λ x -> f (w₁ x) (w₂ x)
-    map2 : {g : spec.Website a b} -> {h : spec.Website a c}
-           -> (f : b -> c -> d)
-           -> WS {a} {b} {g}
-           -> WS {a} {c} {h}
-           -> WS {a} {d} {spec.map2 f g h}
-    -- empty = λ _ -> nothing
+    map : {g : spec.Website a b} →
+          (f : b → c) → WS {a} {b} {g} → WS {a} {c} {spec.map f g}
+    -- map2 f w₁ w₂ = λ x → f (w₁ x) (w₂ x)
+    map2 : {g : spec.Website a b} → {h : spec.Website a c}
+           → (f : b → c → d)
+           → WS {a} {b} {g}
+           → WS {a} {c} {h}
+           → WS {a} {d} {spec.map2 f g h}
+    -- empty = λ _ → nothing
     empty : WS {a} {Maybe b} {spec.empty}
-    -- or ws₁ ws₂ = λ x -> ws₁ x <∣> ws₂ x
+    -- or ws₁ ws₂ = λ x → ws₁ x <∣> ws₂ x
     or : {f g : spec.Website a (Maybe b)}
-         -> WS {a} {Maybe b} {f}
-         -> WS {a} {Maybe b} {g}
-         -> WS {a} {Maybe b} {spec.or f g}
+         → WS {a} {Maybe b} {f}
+         → WS {a} {Maybe b} {g}
+         → WS {a} {Maybe b} {spec.or f g}
     -- seg s w [] = nothing
     -- seg s w (s' ∷ url) = if s == s' then w url else nothing
-    seg : {f : spec.Website spec.URL (Maybe a)}
-          -> (s : String)
-          -> WS {spec.URL} {Maybe a} {f}
-          -> WS {spec.URL} {Maybe a} {spec.seg s f}
+    seg : {f : spec.Website spec.Path (Maybe a)}
+          → (s : String)
+          → WS {spec.Path} {Maybe a} {f}
+          → WS {spec.Path} {Maybe a} {spec.seg s f}
 
-  run : {f : spec.Website a b} -> WS {a} {b} {f} -> (a -> b)
+  run : {f : spec.Website a b} → WS {a} {b} {f} → (a → b)
   run (const x) _ = just x
   run (map f x) a = f (run x a)
   run (map2 f w₁ w₂) a = f (run w₁ a) (run w₂ a)
@@ -173,63 +173,63 @@ module impl where
   run (seg s w) [] = nothing
   run (seg s w) (s' ∷ url) = if s == s' then run w url else nothing
 
-  -- run' : {a b : Set} -> {f : spec.Website a b} -> WS f -> ∃ λ (f' : a -> b) -> f' ≗ f
-  -- run' (const x) = run (const x) , λ s -> refl
+  -- run' : {a b : Set} → {f : spec.Website a b} → WS f → ∃ λ (f' : a → b) → f' ≗ f
+  -- run' (const x) = run (const x) , λ s → refl
   -- run' (map f x) = run (map f x) , λ s → cong f {!!}
   -- run' (map2 f x x₁) = {!!}
   -- run' empty = {!!}
   -- run' (or x x₁) = {!!}
   -- run' (seg s x) = {!!}
 
-  sugg : {f : spec.Website spec.URL b}
-         -> WS {spec.URL} {b} {f}
-         -> List spec.URL
-  sugg (const x) = [ spec.empty-url ]
+  sugg : {f : spec.Website spec.Path b}
+         → WS {spec.Path} {b} {f}
+         → List spec.Path
+  sugg (const x) = [ spec.empty-path ]
   sugg (map _ w) = sugg w
   sugg (map2 f w₁ w₂) = sugg w₁ ++ sugg w₂
-  sugg empty = [ spec.empty-url ]
+  sugg empty = [ spec.empty-path ]
   sugg (or w₁ w₂) = sugg w₁ ++ sugg w₂
   sugg (seg s w) = L.map (s ∷_) (sugg w)
 
-  open spec.URLMap
+  open spec.PathMap
 
-  render : {f : spec.Website spec.URL b}
-           -> WS {spec.URL} {b} {f}
-           -> URLMap b
+  render : {f : spec.Website spec.Path b}
+           → WS {spec.Path} {b} {f}
+           → PathMap b
   render w = spec.sample (run w) (sugg w)
 
-  unwrap : URLMap (Maybe a) -> URLMap a
+  unwrap : PathMap (Maybe a) → PathMap a
   unwrap emp = emp
   unwrap (assoc k (just x) m) = assoc k x (unwrap m)
   unwrap (assoc k nothing m) = (unwrap m)
 
-  render' : {f : spec.Website spec.URL (Maybe b)}
-            -> WS {spec.URL} {Maybe b} {f}
-            -> URLMap b
+  render' : {f : spec.Website spec.Path (Maybe b)}
+            → WS {spec.Path} {Maybe b} {f}
+            → PathMap b
   render' w = unwrap (spec.sample (run w) (sugg w))
 
-ex1' : impl.WS {spec.URL}
+ex1' : impl.WS {spec.Path}
 ex1' = impl.const "Hello World"
 
-ex2' : impl.WS {spec.URL}
+ex2' : impl.WS {spec.Path}
 ex2' = impl.const "Bye bye"
 
 ex3' : impl.WS
 ex3' = impl.or (impl.seg "foo" ex1')
                (impl.seg "bar" ex2')
 
-open spec.URLMap
+open spec.PathMap
 
-ex1'r : URLMap String
+ex1'r : PathMap String
 ex1'r = impl.render' ex1'
 
-ex2'r : URLMap String
+ex2'r : PathMap String
 ex2'r = impl.render' ex2'
 
 ex1't : ex1'r ≡ assoc [] "Hello World" emp
 ex1't = refl
 
-ex3'r : URLMap String
+ex3'r : PathMap String
 ex3'r = impl.render' ex3'
 
 ex3't : ex3'r ≡ assoc [ "foo" ] "Hello World"
