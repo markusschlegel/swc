@@ -4,20 +4,85 @@ import Data.List as L
 open L using (List; _++_; []; _∷_; [_])
 import Data.Maybe as Maybe
 open Maybe using (Maybe; just; nothing; _<∣>_)
-open import Data.String using (String; _==_)
+open import Data.String using (String; _==_; _≟_)
 import Data.Bool as B
-open B using (Bool; if_then_else_)
+open B using (Bool; if_then_else_; _∧_)
 open import Function.Base using (id; _∘_)
 open import Relation.Binary.PropositionalEquality
-  using (_≡_; cong; sym; trans; refl)
+  using (_≡_; _≗_; cong; sym; trans; refl)
 open import Data.Product hiding (map)
+open import Data.Sum hiding (map)
 open import Data.Unit using (⊤; tt)
+open import Data.Empty using (⊥; ⊥-elim)
+open import Relation.Nullary using (Dec; yes; no)
 
 private
   variable
     a b c d : Set
 
+---
+
+is-just : Maybe a -> Set
+is-just (just _) = ⊤
+is-just nothing = ⊥
+
+module PathMap where
+
+  -- A PathMap denotes a partial function from Path to a
+
+  Path : Set
+  Path = List String
+
+  empty-path : Path
+  empty-path = []
+
+  path-eq : (x : Path) → (y : Path) → Dec (x ≡ y)
+  path-eq = {!!}
+
+  assocd : Path -> a -> (Path -> Maybe a) -> (Path -> Maybe a)
+  assocd k v f k' with path-eq k k'
+  ... | yes _ = just v
+  ... | no _  = f k'
+
+  data PathMap (a : Set) : (Path -> Maybe a) -> Set where
+    emp : PathMap a (λ _ -> nothing)
+    assoc : (k : Path)
+            → (v : a)
+            → {f : Path -> Maybe a}
+            -> PathMap a f
+            → PathMap a (assocd k v f)
+
+  -- run extracts the denotation
+  run : {f : Path -> Maybe a} -> PathMap a f -> ∃ λ (f' : Path -> Maybe a) -> f' ≗ f
+  run = {!!}
+
+  -- the domain where the partial function is defined
+  dom : {f : Path -> Maybe a} -> PathMap a f -> (Path -> Set) -- List Path
+  dom emp _ = ⊥
+  dom (assoc k _ m) p = p ≡ k ⊎ dom m p
+
+  -- every path in dom is associated with a just
+  dom-is-domain-1 : {f : Path -> Maybe a} -> (m : PathMap a f) -> (p : Path) -> (dom m p) -> is-just (f p)
+  dom-is-domain-1 (assoc k v m') p x with path-eq k p
+  ... | yes _ = tt
+  dom-is-domain-1 (assoc k v m') p (inj₁ p≡k) | no ¬k≡p = ⊥-elim (¬k≡p (sym p≡k))
+  dom-is-domain-1 (assoc k v m') p (inj₂ y)   | no _      = dom-is-domain-1 m' p y
+
+  -- every just is associated with dom
+  dom-is-domain-2 : {f : Path -> Maybe a} -> (m : PathMap a f) -> (p : Path) -> is-just (f p) -> (dom m p)
+  dom-is-domain-2 (assoc k v m') p x with path-eq k p
+  ... | yes pr = inj₁ (sym pr)
+  ... | no pr = inj₂ (dom-is-domain-2 m' p x)
+
+  -- a sampling at exactly the given paths
+  sample : (f : Path → a) → (ps : List Path) → {f' : Path -> Maybe a} -> (∃ λ (m : PathMap a f') -> (p : Path) -> dom m p -> f' p ≡ just (f p))
+  sample = {!!}
+
+---
+
 module spec where
+
+  open PathMap hiding (run)
 
   Website : Set → Set → Set
   Website a b = a → b
@@ -31,18 +96,6 @@ module spec where
   map2 : (b → c → d) → Website a b → Website a c → Website a d
   map2 f w₁ w₂ = λ x → f (w₁ x) (w₂ x)
 
-  Path : Set
-  Path = List String
-
-  empty-path : Path
-  empty-path = []
-
-  -- url== : Path → Path → Bool
-  -- url== [] [] = B.true
-  -- url== [] (_ ∷ _) = B.false
-  -- url== (_ ∷ _) [] = B.false
-  -- url== (x ∷ xs) (y ∷ ys) = (x == y) ∧ (url== xs ys)
-  
   empty : Website a (Maybe b)
   empty = λ _ → nothing
   
@@ -53,90 +106,11 @@ module spec where
   seg s w [] = nothing
   seg s w (s' ∷ url) = if s == s' then w url else nothing
   
-  
-  -- A few example websites
-  ex1 : Website Path (Maybe String)
-  ex1 = const "Hello World"
-  
-  ex2 : Website Path (Maybe String)
-  ex2 = const "Bye bye"
-  
-  ex3 : Website Path (Maybe String)
-  ex3 = or (seg "foo" ex1)
-           (seg "bar" ex2)
-  
-  data Markdown : Set where
-    s : String → Markdown
-    # : Markdown → Markdown
-    ## : Markdown → Markdown
-    ** : String → Markdown
-    _<>_ : Markdown → Markdown → Markdown
-  
-  data HTML : Set where
-    s : String → HTML
-    h1 : HTML → HTML
-    h2 : HTML → HTML
-    strong : String → HTML
-    _<>_ : HTML → HTML → HTML
-    
-  markdown->html : Markdown → HTML
-  markdown->html (s x) = s x
-  markdown->html (# x) = h1 (markdown->html x)
-  markdown->html (## x) = h2 (markdown->html x)
-  markdown->html (** x) = strong x
-  markdown->html (x <> y) = markdown->html x <> markdown->html y
-  
-  case : List (String × Website Path (Maybe a)) → Website Path (Maybe a)
-  case [] = empty
-  case (( st , w ) ∷ cases) = or (seg st w) (case cases)
-  
-  ex4 : Website Path (Maybe Markdown)
-  ex4 = case (( "hi" , const (# ((s "Hello ") <> (** "Lambda Days")))) ∷
-              ( "bye" , const (s "Bye") ) ∷
-              ( "about" , const (s "Nice website") ) ∷
-              [])
-  
-  ex5 : Website Path (Maybe HTML)
-  ex5 = map (Maybe.map markdown->html) ex4
-  
-  
-  
-  -- sampling
-  
-  module PathMap where
-  
-    data PathMap (a : Set) : Set where
-      emp : PathMap a
-      assoc : (k : Path) → (v : a) → PathMap a → PathMap a
-  
-    keys : {a : Set} → PathMap a → List Path
-    keys emp = []
-    keys (assoc k _ mp) = k ∷ (keys mp)
-  
-    approximates : {a : Set} → (Path → a) → PathMap a → Set
-    approximates f emp = ⊤
-    approximates f (assoc k v mp) = v ≡ f k × approximates f mp
-  
-    -- app : {a : Set ℓ} → {m : M a} → SMap m → String → Maybe a
-    -- app empty k = nothing
-    -- app (assoc k' v m') k = if k' == k then just v else app m' k
-  
-  open PathMap
-  
-  sample : (f : Path → a) → (urls : List Path) → PathMap a
-  sample f [] = emp
-  sample f (url ∷ urls) = assoc url (f url) (sample f urls)
-  
-  
-  -- and we're done ... ?
-  
-  -- Where do the sampling points come from?
-  -- The website itself can give us hints as to where interesting sampling points are
-  -- In order to be able to do that, we have to reflect the website functions as data
-  
-  
+---
 
 module impl where
+
+  open PathMap hiding (run)
 
   data WS : {spec.Website a b} → Set₁ where
     -- const x = λ _ → just x
@@ -159,10 +133,10 @@ module impl where
          → WS {a} {Maybe b} {spec.or f g}
     -- seg s w [] = nothing
     -- seg s w (s' ∷ url) = if s == s' then w url else nothing
-    seg : {f : spec.Website spec.Path (Maybe a)}
+    seg : {f : spec.Website Path (Maybe a)}
           → (s : String)
-          → WS {spec.Path} {Maybe a} {f}
-          → WS {spec.Path} {Maybe a} {spec.seg s f}
+          → WS {Path} {Maybe a} {f}
+          → WS {Path} {Maybe a} {spec.seg s f}
 
   run : {f : spec.Website a b} → WS {a} {b} {f} → (a → b)
   run (const x) _ = just x
@@ -181,59 +155,27 @@ module impl where
   -- run' (or x x₁) = {!!}
   -- run' (seg s x) = {!!}
 
-  sugg : {f : spec.Website spec.Path b}
-         → WS {spec.Path} {b} {f}
-         → List spec.Path
-  sugg (const x) = [ spec.empty-path ]
+  sugg : {f : spec.Website Path b}
+         → WS {Path} {b} {f}
+         → List Path
+  sugg (const x) = [ empty-path ]
   sugg (map _ w) = sugg w
   sugg (map2 f w₁ w₂) = sugg w₁ ++ sugg w₂
-  sugg empty = [ spec.empty-path ]
+  sugg empty = [ empty-path ]
   sugg (or w₁ w₂) = sugg w₁ ++ sugg w₂
   sugg (seg s w) = L.map (s ∷_) (sugg w)
 
-  open spec.PathMap
+  -- render : {f : spec.Website Path b}
+  --          → WS {Path} {b} {f}
+  --          → PathMap b
+  -- render w = sample (run w) (sugg w)
 
-  render : {f : spec.Website spec.Path b}
-           → WS {spec.Path} {b} {f}
-           → PathMap b
-  render w = spec.sample (run w) (sugg w)
+  -- unwrap : PathMap (Maybe a) → PathMap a
+  -- unwrap emp = emp
+  -- unwrap (assoc k (just x) m) = assoc k x (unwrap m)
+  -- unwrap (assoc k nothing m) = (unwrap m)
 
-  unwrap : PathMap (Maybe a) → PathMap a
-  unwrap emp = emp
-  unwrap (assoc k (just x) m) = assoc k x (unwrap m)
-  unwrap (assoc k nothing m) = (unwrap m)
-
-  render' : {f : spec.Website spec.Path (Maybe b)}
-            → WS {spec.Path} {Maybe b} {f}
-            → PathMap b
-  render' w = unwrap (spec.sample (run w) (sugg w))
-
-ex1' : impl.WS {spec.Path}
-ex1' = impl.const "Hello World"
-
-ex2' : impl.WS {spec.Path}
-ex2' = impl.const "Bye bye"
-
-ex3' : impl.WS
-ex3' = impl.or (impl.seg "foo" ex1')
-               (impl.seg "bar" ex2')
-
-open spec.PathMap
-
-ex1'r : PathMap String
-ex1'r = impl.render' ex1'
-
-ex2'r : PathMap String
-ex2'r = impl.render' ex2'
-
-ex1't : ex1'r ≡ assoc [] "Hello World" emp
-ex1't = refl
-
-ex3'r : PathMap String
-ex3'r = impl.render' ex3'
-
-ex3't : ex3'r ≡ assoc [ "foo" ] "Hello World"
-               (assoc [ "bar" ] "Bye bye"
-                emp)
-ex3't = refl
-
+  -- render' : {f : spec.Website Path (Maybe b)}
+  --           → WS {Path} {Maybe b} {f}
+  --           → PathMap b
+  -- render' w = unwrap (sample (run w) (sugg w))
